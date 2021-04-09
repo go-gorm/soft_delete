@@ -45,7 +45,7 @@ type User struct {
   ID        uint
   Name      string
   DeletedAt time.Time
-  IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag;delUnixField:deleted_at"`
+  IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt"`
 }
 
 // Query

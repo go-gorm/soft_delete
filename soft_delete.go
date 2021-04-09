@@ -51,11 +51,23 @@ func (sd SoftDeleteQueryClause) ModifyStatement(stmt *gorm.Statement) {
 }
 
 func (DeletedAt) DeleteClauses(f *schema.Field) []clause.Interface {
-	return []clause.Interface{SoftDeleteDeleteClause{Field: f}}
+	settings := schema.ParseTagSetting(f.TagSettings["SOFTDELETE"], ",")
+	softDeleteClause := SoftDeleteDeleteClause{
+		Field: f,
+		Flag:  settings["FLAG"] != "",
+	}
+
+	if v := settings["DELETEDATFIELD"]; v != "" { // DeletedAtField
+		softDeleteClause.DeleteAtField = f.Schema.LookUpField(v)
+	}
+
+	return []clause.Interface{softDeleteClause}
 }
 
 type SoftDeleteDeleteClause struct {
-	Field *schema.Field
+	Field         *schema.Field
+	Flag          bool
+	DeleteAtField *schema.Field
 }
 
 func (sd SoftDeleteDeleteClause) Name() string {
@@ -70,16 +82,13 @@ func (sd SoftDeleteDeleteClause) MergeClause(*clause.Clause) {
 
 func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 	if stmt.SQL.String() == "" {
-		if sd.Field.TagSettings["SOFTDELETE"] == "flag" {
-			delUnixField := sd.Field.TagSettings["DELUNIXFIELD"]
-			if delUnixField != "" {
-				stmt.AddClause(clause.Set{
-					{Column: clause.Column{Name: sd.Field.DBName}, Value: 1},
-					{Column: clause.Column{Name: delUnixField}, Value: stmt.DB.NowFunc().Unix()},
-				})
-			} else {
-				stmt.AddClause(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: 1}})
+		if sd.Flag {
+			set := clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: 1}}
+			if sd.DeleteAtField != nil {
+				set = append(set, clause.Assignment{Column: clause.Column{Name: sd.DeleteAtField.DBName}, Value: stmt.DB.NowFunc().Unix()})
 			}
+
+			stmt.AddClause(set)
 		} else {
 			stmt.AddClause(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: stmt.DB.NowFunc().Unix()}})
 		}

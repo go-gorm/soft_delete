@@ -165,7 +165,7 @@ type MixedUser struct {
 	Name      string
 	Age       uint
 	DeletedAt time.Time
-	IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag;delUnixField:deleted_at"`
+	IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt"`
 }
 
 func TestMixedDeleteFlagMode(t *testing.T) {
