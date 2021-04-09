@@ -48,6 +48,10 @@ func TestSoftDelete(t *testing.T) {
 		t.Fatalf("No error should happen when soft delete user, but got %v", err)
 	}
 
+	if user.DeletedAt == 0 {
+		t.Errorf("user's deleted at should not be zero, DeletedAt: %v", user.DeletedAt)
+	}
+
 	sql := DB.Session(&gorm.Session{DryRun: true}).Delete(&user).Statement.SQL.String()
 	if !regexp.MustCompile(`UPDATE .users. SET .deleted_at.=.* WHERE .users.\..id. = .* AND .users.\..deleted_at. = ?`).MatchString(sql) {
 		t.Fatalf("invalid sql generated, got %v", sql)
@@ -119,6 +123,10 @@ func TestSoftDeleteFlagMode(t *testing.T) {
 
 	if err := DB.Delete(&user).Error; err != nil {
 		t.Fatalf("No error should happen when soft delete user, but got %v", err)
+	}
+
+	if user.IsDel == 0 {
+		t.Errorf("user's deleted at should not be zero, IsDel: %v", user.IsDel)
 	}
 
 	sql := DB.Session(&gorm.Session{DryRun: true}).Delete(&user).Statement.SQL.String()
@@ -195,6 +203,10 @@ func TestMixedDeleteFlagMode(t *testing.T) {
 		t.Fatalf("No error should happen when soft delete user, but got %v", err)
 	}
 
+	if user.DeletedAt.IsZero() || user.IsDel == 0 {
+		t.Errorf("user's deleted at should not be zero, DeletedAt: %v, IsDel: %v", user.DeletedAt, user.IsDel)
+	}
+
 	sql := DB.Session(&gorm.Session{DryRun: true}).Delete(&user).Statement.SQL.String()
 	if !regexp.MustCompile(`UPDATE .mixed_users. SET .is_del.=.*,.deleted_at.=.* WHERE .mixed_users.\..id. = .* AND .mixed_users.\..is_del. = ?`).MatchString(sql) {
 		t.Fatalf("invalid sql generated, got %v", sql)
@@ -229,6 +241,7 @@ func TestMixedDeleteFlagMode(t *testing.T) {
 	}
 
 	DB.Unscoped().Delete(&user)
+
 	if err := DB.Unscoped().First(&MixedUser{}, "name = ?", user.Name).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("Can't find permanently deleted record")
 	}
