@@ -6,9 +6,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"testing"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
 	"gorm.io/plugin/soft_delete"
 )
 
@@ -154,6 +156,80 @@ func TestSoftDeleteFlagMode(t *testing.T) {
 
 	DB.Unscoped().Delete(&user)
 	if err := DB.Unscoped().First(&FlagUser{}, "name = ?", user.Name).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Errorf("Can't find permanently deleted record")
+	}
+}
+
+type MixedUser struct {
+	ID        uint
+	Name      string
+	Age       uint
+	DeletedAt time.Time
+	IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt"`
+}
+
+func TestMixedDeleteFlagMode(t *testing.T) {
+	DB, err := gorm.Open(sqlite.Open(filepath.Join(os.TempDir(), "gorm.db")), &gorm.Config{})
+	DB = DB.Debug()
+	if err != nil {
+		t.Errorf("failed to connect database")
+	}
+
+	user := MixedUser{Name: "jinzhu", Age: 20}
+	DB.Migrator().DropTable(&MixedUser{})
+	DB.AutoMigrate(&MixedUser{})
+	DB.Save(&user)
+
+	var count int64
+	var age uint
+
+	if DB.Model(&MixedUser{}).Where("name = ?", user.Name).Count(&count).Error != nil || count != 1 {
+		t.Errorf("Count soft deleted record, expects: %v, got: %v", 1, count)
+	}
+
+	if DB.Model(&MixedUser{}).Select("age").Where("name = ?", user.Name).Scan(&age).Error != nil || age != user.Age {
+		t.Errorf("Age soft deleted record, expects: %v, got: %v", 0, age)
+	}
+
+	if err := DB.Delete(&user).Error; err != nil {
+		t.Fatalf("No error should happen when soft delete user, but got %v", err)
+	}
+
+	sql := DB.Session(&gorm.Session{DryRun: true}).Delete(&user).Statement.SQL.String()
+	if !regexp.MustCompile(`UPDATE .mixed_users. SET .is_del.=.*,.deleted_at.=.* WHERE .mixed_users.\..id. = .* AND .mixed_users.\..is_del. = ?`).MatchString(sql) {
+		t.Fatalf("invalid sql generated, got %v", sql)
+	}
+
+	if DB.First(&MixedUser{}, "name = ?", user.Name).Error == nil {
+		t.Errorf("Can't find a soft deleted record")
+	}
+
+	count = 0
+	if DB.Model(&MixedUser{}).Where("name = ?", user.Name).Count(&count).Error != nil || count != 0 {
+		t.Errorf("Count soft deleted record, expects: %v, got: %v", 0, count)
+	}
+
+	age = 0
+	if err := DB.Model(&MixedUser{}).Select("age").Where("name = ?", user.Name).Scan(&age).Error; err != nil || age != 0 {
+		t.Fatalf("Age soft deleted record, expects: %v, got: %v, err %v", 0, age, err)
+	}
+
+	if err := DB.Unscoped().First(&MixedUser{}, "name = ?", user.Name).Error; err != nil {
+		t.Errorf("Should find soft deleted record with Unscoped, but got err %s", err)
+	}
+
+	count = 0
+	if DB.Unscoped().Model(&MixedUser{}).Where("name = ?", user.Name).Count(&count).Error != nil || count != 1 {
+		t.Errorf("Count soft deleted record, expects: %v, count: %v", 1, count)
+	}
+
+	age = 0
+	if DB.Unscoped().Model(&MixedUser{}).Select("age").Where("name = ?", user.Name).Scan(&age).Error != nil || age != user.Age {
+		t.Errorf("Age soft deleted record, expects: %v, got: %v", 0, age)
+	}
+
+	DB.Unscoped().Delete(&user)
+	if err := DB.Unscoped().First(&MixedUser{}, "name = ?", user.Name).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("Can't find permanently deleted record")
 	}
 }
