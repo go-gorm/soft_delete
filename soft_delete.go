@@ -71,7 +71,15 @@ func (sd SoftDeleteDeleteClause) MergeClause(*clause.Clause) {
 func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 	if stmt.SQL.String() == "" {
 		if sd.Field.TagSettings["SOFTDELETE"] == "flag" {
-			stmt.AddClause(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: 1}})
+			delUnixField := sd.Field.TagSettings["DELUNIXFIELD"]
+			if delUnixField != "" {
+				stmt.AddClause(clause.Set{
+					{Column: clause.Column{Name: sd.Field.DBName}, Value: 1},
+					{Column: clause.Column{Name: delUnixField}, Value: stmt.DB.NowFunc().Unix()},
+				})
+			} else {
+				stmt.AddClause(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: 1}})
+			}
 		} else {
 			stmt.AddClause(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: stmt.DB.NowFunc().Unix()}})
 		}
