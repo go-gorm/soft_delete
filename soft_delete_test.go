@@ -246,3 +246,39 @@ func TestMixedDeleteFlagMode(t *testing.T) {
 		t.Errorf("Can't find permanently deleted record")
 	}
 }
+
+type NullableDeletedAtUser struct {
+	ID        int64
+	Name      string
+	Age       uint
+	DeletedAt soft_delete.DeletedAt `gorm:"default:null"`
+}
+
+func TestNullableDeletedAtUser(t *testing.T) {
+	DB, err := gorm.Open(sqlite.Open(filepath.Join(os.TempDir(), "gorm.db")), &gorm.Config{})
+	DB = DB.Debug()
+	if err != nil {
+		t.Errorf("failed to connect database")
+	}
+
+	user := NullableDeletedAtUser{Name: "shyamin", Age: 25}
+	DB.Migrator().DropTable(&NullableDeletedAtUser{})
+	DB.AutoMigrate(&NullableDeletedAtUser{})
+	DB.Save(&user)
+
+	var count int64
+	var age uint
+
+	if DB.Model(&NullableDeletedAtUser{}).Where("name = ?", user.Name).Count(&count).Error != nil || count != 1 {
+		t.Errorf("Count soft deleted record, expects: %v, got: %v", 1, count)
+	}
+
+	if DB.Model(&NullableDeletedAtUser{}).Select("age").Where("name = ?", user.Name).Scan(&age).Error != nil || age != user.Age {
+		t.Errorf("Age soft deleted record, expects: %v, got: %v", 0, age)
+	}
+
+	if err := DB.Delete(&user).Error; err != nil {
+		t.Fatalf("No error should happen when soft delete user, but got %v", err)
+	}
+
+}
