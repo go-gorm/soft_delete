@@ -17,6 +17,25 @@ SELECT * FROM users WHERE deleted_at = 0;
 UPDATE users SET deleted_at = /* current unix second */ WHERE ID = 1;
 ```
 
+### Specify Time Unit
+
+flag mode will use `0`, `1` to mark data as deleted or not, `1` means deleted
+
+```go
+type User struct {
+  ID    uint
+  Name  string
+  DeletedAt soft_delete.DeletedAt `gorm:"softDelete:milli"`
+  // DeletedAt soft_delete.DeletedAt `gorm:"softDelete:nano"`
+}
+
+// Query
+SELECT * FROM users WHERE deleted_at = 0;
+
+// Delete
+UPDATE users SET deleted_at = /* current unix milli second or nano second */ WHERE ID = 1;
+```
+
 ## Flag Mode
 
 flag mode will use `0`, `1` to mark data as deleted or not, `1` means deleted

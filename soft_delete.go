@@ -59,8 +59,20 @@ func (sd SoftDeleteQueryClause) ModifyStatement(stmt *gorm.Statement) {
 func (DeletedAt) DeleteClauses(f *schema.Field) []clause.Interface {
 	settings := schema.ParseTagSetting(f.TagSettings["SOFTDELETE"], ",")
 	softDeleteClause := SoftDeleteDeleteClause{
-		Field: f,
-		Flag:  settings["FLAG"] != "",
+		Field:    f,
+		Flag:     settings["FLAG"] != "",
+		TimeType: schema.UnixSecond,
+	}
+
+	// flag is much more priority
+	if !softDeleteClause.Flag {
+		if settings["NANO"] != "" {
+			softDeleteClause.TimeType = schema.UnixNanosecond
+		} else if settings["MILLI"] != "" {
+			softDeleteClause.TimeType = schema.UnixMillisecond
+		} else {
+			softDeleteClause.TimeType = schema.UnixSecond
+		}
 	}
 
 	if v := settings["DELETEDATFIELD"]; v != "" { // DeletedAtField
@@ -73,6 +85,7 @@ func (DeletedAt) DeleteClauses(f *schema.Field) []clause.Interface {
 type SoftDeleteDeleteClause struct {
 	Field         *schema.Field
 	Flag          bool
+	TimeType      schema.TimeType
 	DeleteAtField *schema.Field
 }
 
@@ -88,19 +101,26 @@ func (sd SoftDeleteDeleteClause) MergeClause(*clause.Clause) {
 
 func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 	if stmt.SQL.String() == "" {
+		curTime := stmt.DB.NowFunc()
 		if sd.Flag {
 			set := clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: 1}}
 			stmt.SetColumn(sd.Field.DBName, 1, true)
 
 			if sd.DeleteAtField != nil {
-				curTime := stmt.DB.NowFunc()
 				set = append(set, clause.Assignment{Column: clause.Column{Name: sd.DeleteAtField.DBName}, Value: curTime.Unix()})
 				stmt.SetColumn(sd.DeleteAtField.DBName, curTime, true)
 			}
 
 			stmt.AddClause(set)
 		} else {
-			curUnix := stmt.DB.NowFunc().Unix()
+			var curUnix int64 = 0
+			if sd.TimeType == schema.UnixNanosecond {
+				curUnix = curTime.UnixNano()
+			} else if sd.TimeType == schema.UnixMillisecond {
+				curUnix = curTime.UnixNano() / 1e6
+			} else {
+				curUnix = curTime.Unix()
+			}
 			stmt.AddClause(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: curUnix}})
 			stmt.SetColumn(sd.Field.DBName, curUnix, true)
 		}
