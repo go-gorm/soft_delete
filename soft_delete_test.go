@@ -92,9 +92,9 @@ func TestSoftDelete(t *testing.T) {
 }
 
 type MilliUser struct {
-	ID    uint
-	Name  string
-	Age   uint
+	ID        uint
+	Name      string
+	Age       uint
 	DeletedAt soft_delete.DeletedAt `gorm:"softDelete:milli"`
 }
 
@@ -167,7 +167,6 @@ func TestSoftDeleteMilliMode(t *testing.T) {
 		t.Errorf("Can't find permanently deleted record")
 	}
 }
-
 
 type FlagUser struct {
 	ID    uint
