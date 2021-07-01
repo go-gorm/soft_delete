@@ -19,7 +19,7 @@ UPDATE users SET deleted_at = /* current unix second */ WHERE ID = 1;
 
 ### Specify Time Unit
 
-We now support ms and ns timestamp when filling the `deleted_at` col, only need to specify tag `gorm:"softDelete:milli"` or gorm:"softDelete:nano".
+We now support ms and ns timestamp when filling the `deleted_at` col, only need to specify tag `gorm:"softDelete:milli"` or `gorm:"softDelete:nano"`.
 
 ```go
 type User struct {
