@@ -1,0 +1,8 @@
+TODO*
+documents
+coverage.txt
+_book
+.DS_Store
+/.idea
+/.vscode
+/output
