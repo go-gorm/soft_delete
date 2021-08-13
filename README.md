@@ -63,7 +63,7 @@ mixed mode will use `0`, `1` to mark data as deleted or not, `1` means deleted, 
 type User struct {
   ID        uint
   Name      string
-  DeletedAt time.Time
+  DeletedAt int64
   IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt"`
 }
 
