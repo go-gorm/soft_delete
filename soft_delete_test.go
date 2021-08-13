@@ -89,6 +89,10 @@ func TestSoftDelete(t *testing.T) {
 	if err := DB.Unscoped().First(&User{}, "name = ?", user.Name).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("Can't find permanently deleted record")
 	}
+
+	if err := DB.Model(&User{}).Where("name = ?", user.Name).Restore(&user).Error; err != nil {
+		t.Errorf("User restore err: %s", err)
+	}
 }
 
 type MilliUser struct {
@@ -165,6 +169,10 @@ func TestSoftDeleteMilliMode(t *testing.T) {
 	DB.Unscoped().Delete(&user)
 	if err := DB.Unscoped().First(&MilliUser{}, "name = ?", user.Name).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("Can't find permanently deleted record")
+	}
+
+	if err := DB.Model(&MilliUser{}).Where("name = ?", user.Name).Restore(&user).Error; err != nil {
+		t.Errorf("MilliUser restore err: %s", err)
 	}
 }
 
@@ -243,6 +251,11 @@ func TestSoftDeleteFlagMode(t *testing.T) {
 	if err := DB.Unscoped().First(&FlagUser{}, "name = ?", user.Name).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("Can't find permanently deleted record")
 	}
+
+	if err := DB.Model(&FlagUser{}).Where("name = ?", user.Name).Restore(&user).Error; err != nil {
+		t.Errorf("FlagUser restore err: %s", err)
+	}
+
 }
 
 type MixedUser struct {
@@ -322,6 +335,10 @@ func TestMixedDeleteFlagMode(t *testing.T) {
 	if err := DB.Unscoped().First(&MixedUser{}, "name = ?", user.Name).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("Can't find permanently deleted record")
 	}
+
+	if err := DB.Model(&MixedUser{}).Where("name = ?", user.Name).Restore(&user).Error; err != nil {
+		t.Errorf("MixedUser restore err: %s", err)
+	}
 }
 
 type NullableDeletedAtUser struct {
@@ -356,6 +373,10 @@ func TestNullableDeletedAtUser(t *testing.T) {
 
 	if err := DB.Delete(&user).Error; err != nil {
 		t.Fatalf("No error should happen when soft delete user, but got %v", err)
+	}
+
+	if err := DB.Model(&NullableDeletedAtUser{}).Where("name = ?", user.Name).Restore(&user).Error; err != nil {
+		t.Errorf("NullableDeletedAtUser restore err: %s", err)
 	}
 
 }

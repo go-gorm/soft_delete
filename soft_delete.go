@@ -153,3 +153,16 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 		stmt.Build("UPDATE", "SET", "WHERE")
 	}
 }
+
+func (sd SoftDeleteDeleteClause) SetUnDeleteDest(stmt *gorm.Statement) {
+	if stmt.Unscoped {
+		if sd.Flag && sd.DeleteAtField != nil {
+			stmt.SetColumn(sd.DeleteAtField.DBName, 0, true)
+		}
+		if sd.Field.DefaultValue != "" {
+			stmt.SetColumn(sd.Field.DBName, clause.Expr{SQL: sd.Field.DefaultValue}, true)
+		} else {
+			stmt.SetColumn(sd.Field.DBName, 0, true)
+		}
+	}
+}
