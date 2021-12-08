@@ -101,7 +101,7 @@ func (sd SoftDeleteUpdateClause) MergeClause(*clause.Clause) {
 }
 
 func (sd SoftDeleteUpdateClause) ModifyStatement(stmt *gorm.Statement) {
-	if stmt.SQL.String() == "" {
+	if stmt.SQL.Len() == 0 && !stmt.Statement.Unscoped {
 		if _, ok := stmt.Clauses["WHERE"]; stmt.DB.AllowGlobalUpdate || ok {
 			SoftDeleteQueryClause(sd).ModifyStatement(stmt)
 		}
@@ -126,7 +126,7 @@ func (sd SoftDeleteDeleteClause) MergeClause(*clause.Clause) {
 }
 
 func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
-	if stmt.SQL.String() == "" {
+	if stmt.SQL.Len() == 0 && !stmt.Statement.Unscoped {
 		curTime := stmt.DB.NowFunc()
 		if sd.Flag {
 			set := clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: 1}}
