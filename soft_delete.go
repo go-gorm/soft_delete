@@ -102,9 +102,7 @@ func (sd SoftDeleteUpdateClause) MergeClause(*clause.Clause) {
 
 func (sd SoftDeleteUpdateClause) ModifyStatement(stmt *gorm.Statement) {
 	if stmt.SQL.Len() == 0 && !stmt.Statement.Unscoped {
-		if _, ok := stmt.Clauses["WHERE"]; stmt.DB.AllowGlobalUpdate || ok {
-			SoftDeleteQueryClause(sd).ModifyStatement(stmt)
-		}
+		SoftDeleteQueryClause(sd).ModifyStatement(stmt)
 	}
 }
 
@@ -169,12 +167,7 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 			}
 		}
 
-		if _, ok := stmt.Clauses["WHERE"]; !stmt.DB.AllowGlobalUpdate && !ok {
-			stmt.DB.AddError(gorm.ErrMissingWhereClause)
-		} else {
-			SoftDeleteQueryClause{Field: sd.Field}.ModifyStatement(stmt)
-		}
-
+		SoftDeleteQueryClause{Field: sd.Field}.ModifyStatement(stmt)
 		stmt.AddClauseIfNotExists(clause.Update{})
 		stmt.Build(stmt.DB.Callback().Update().Clauses...)
 	}
