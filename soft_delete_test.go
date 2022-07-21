@@ -253,6 +253,14 @@ type MixedUser struct {
 	IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt"`
 }
 
+type MixedUser2 struct {
+	ID        uint
+	Name      string
+	Age       uint
+	DeletedAt time.Time
+	IsDel     soft_delete.DeletedAt `gorm:"softDelete:,DeletedAtField:DeletedAt"`
+}
+
 func TestMixedDeleteFlagMode(t *testing.T) {
 	DB, err := gorm.Open(sqlite.Open(filepath.Join(os.TempDir(), "gorm.db")), &gorm.Config{})
 	DB = DB.Debug()
@@ -280,7 +288,7 @@ func TestMixedDeleteFlagMode(t *testing.T) {
 		t.Fatalf("No error should happen when soft delete user, but got %v", err)
 	}
 
-	if user.DeletedAt.IsZero() || user.IsDel == 0 {
+	if user.DeletedAt.IsZero() || user.IsDel != 1 {
 		t.Errorf("user's deleted at should not be zero, DeletedAt: %v, IsDel: %v", user.DeletedAt, user.IsDel)
 	}
 
@@ -321,6 +329,17 @@ func TestMixedDeleteFlagMode(t *testing.T) {
 
 	if err := DB.Unscoped().First(&MixedUser{}, "name = ?", user.Name).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Errorf("Can't find permanently deleted record")
+	}
+
+	user2 := MixedUser2{Name: "jinzhu", Age: 20}
+	DB.Table("mixed_users").Save(&user2)
+
+	if err := DB.Table("mixed_users").Delete(&user2).Error; err != nil {
+		t.Fatalf("No error should happen when soft delete user, but got %v", err)
+	}
+
+	if user2.DeletedAt.IsZero() || int64(user2.IsDel) <= time.Now().Unix()-10 {
+		t.Errorf("user's deleted at should not be zero, DeletedAt: %v, IsDel: %v", user2.DeletedAt, user2.IsDel)
 	}
 }
 

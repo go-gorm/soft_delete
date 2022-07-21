@@ -125,16 +125,19 @@ func (sd SoftDeleteDeleteClause) MergeClause(*clause.Clause) {
 
 func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 	if stmt.SQL.Len() == 0 && !stmt.Statement.Unscoped {
-		curTime := stmt.DB.NowFunc()
+		var (
+			curTime = stmt.DB.NowFunc()
+			set     clause.Set
+		)
+
+		if sd.DeleteAtField != nil {
+			set = append(set, clause.Assignment{Column: clause.Column{Name: sd.DeleteAtField.DBName}, Value: curTime})
+			stmt.SetColumn(sd.DeleteAtField.DBName, curTime, true)
+		}
+
 		if sd.Flag {
-			set := clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: 1}}
+			set = append(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: 1}}, set...)
 			stmt.SetColumn(sd.Field.DBName, 1, true)
-
-			if sd.DeleteAtField != nil {
-				set = append(set, clause.Assignment{Column: clause.Column{Name: sd.DeleteAtField.DBName}, Value: curTime.Unix()})
-				stmt.SetColumn(sd.DeleteAtField.DBName, curTime, true)
-			}
-
 			stmt.AddClause(set)
 		} else {
 			var curUnix int64 = 0
@@ -145,7 +148,9 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 			} else {
 				curUnix = curTime.Unix()
 			}
-			stmt.AddClause(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: curUnix}})
+
+			set = append(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: curUnix}}, set...)
+			stmt.AddClause(set)
 			stmt.SetColumn(sd.Field.DBName, curUnix, true)
 		}
 

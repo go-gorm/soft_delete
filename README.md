@@ -1,5 +1,6 @@
 # Soft Delete
 
+[https://gorm.io/docs/delete.html#Soft-Delete](https://gorm.io/docs/delete.html#Soft-Delete)
 
 ```go
 import "gorm.io/plugin/soft_delete"
