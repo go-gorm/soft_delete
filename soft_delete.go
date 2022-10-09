@@ -10,6 +10,11 @@ import (
 
 type DeletedAt uint
 
+var (
+	FlagDeleted = 1
+	FlagActived = 0
+)
+
 func (DeletedAt) QueryClauses(f *schema.Field) []clause.Interface {
 	return []clause.Interface{SoftDeleteQueryClause{Field: f}}
 }
@@ -49,7 +54,7 @@ func (sd SoftDeleteQueryClause) ModifyStatement(stmt *gorm.Statement) {
 			}})
 		} else {
 			stmt.AddClause(clause.Where{Exprs: []clause.Expression{
-				clause.Eq{Column: clause.Column{Table: clause.CurrentTable, Name: sd.Field.DBName}, Value: 0},
+				clause.Eq{Column: clause.Column{Table: clause.CurrentTable, Name: sd.Field.DBName}, Value: FlagActived},
 			}})
 		}
 		stmt.Clauses["soft_delete_enabled"] = clause.Clause{}
@@ -136,8 +141,8 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 		}
 
 		if sd.Flag {
-			set = append(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: 1}}, set...)
-			stmt.SetColumn(sd.Field.DBName, 1, true)
+			set = append(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: FlagDeleted}}, set...)
+			stmt.SetColumn(sd.Field.DBName, FlagDeleted, true)
 			stmt.AddClause(set)
 		} else {
 			var curUnix int64 = 0
