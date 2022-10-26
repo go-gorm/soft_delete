@@ -184,16 +184,17 @@ func getTimeType(settings map[string]string) schema.TimeType {
 	if settings["NANO"] != "" {
 		return schema.UnixNanosecond
 	}
+
 	if settings["MILLI"] != "" {
 		return schema.UnixMillisecond
 	}
+
 	fieldUnit := strings.ToUpper(settings["DELETEDATFIELDUNIT"])
-	if fieldUnit == "" {
-		return schema.UnixSecond
-	}
+
 	if fieldUnit == "NANO" {
 		return schema.UnixNanosecond
 	}
+
 	if fieldUnit == "MILLI" {
 		return schema.UnixMillisecond
 	}
