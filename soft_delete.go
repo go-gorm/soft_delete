@@ -169,6 +169,7 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 		stmt.Build(stmt.DB.Callback().Update().Clauses...)
 	}
 }
+
 func (sd SoftDeleteDeleteClause) timeToUnix(curTime time.Time) int64 {
 	switch sd.TimeType {
 	case schema.UnixNanosecond:
