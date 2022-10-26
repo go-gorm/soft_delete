@@ -74,3 +74,20 @@ SELECT * FROM users WHERE is_del = 0;
 // Delete
 UPDATE users SET is_del = 1, deleted_at = /* current unix second */ WHERE ID = 1;
 ```
+
+support mixed mode specify time unit, e.g. `gorm:"softDelete:flag,DeletedAtField:DeletedAt"` or `gorm:"softDelete:flag,DeletedAtField:DeletedAt,DeletedAtFieldUnit:milli"` or `gorm:"softDelete:flag,DeletedAtField:DeletedAt,DeletedAtFieldUnit:nano"`.
+
+```go
+type User struct {
+  ID        uint
+  Name      string
+  DeletedAt int64
+  IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag,DeletedAtField:DeletedAt,DeletedAtFieldUnit:milli"`
+}
+
+// Query
+SELECT * FROM users WHERE is_del = 0;
+
+// Delete
+UPDATE users SET is_del = 1, deleted_at = /* current unix milli second second*/ WHERE ID = 1;
+```

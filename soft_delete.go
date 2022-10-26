@@ -2,6 +2,8 @@ package soft_delete
 
 import (
 	"reflect"
+	"strings"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -66,24 +68,11 @@ func (DeletedAt) DeleteClauses(f *schema.Field) []clause.Interface {
 	softDeleteClause := SoftDeleteDeleteClause{
 		Field:    f,
 		Flag:     settings["FLAG"] != "",
-		TimeType: schema.UnixSecond,
+		TimeType: getTimeType(settings),
 	}
-
-	// flag is much more priority
-	if !softDeleteClause.Flag {
-		if settings["NANO"] != "" {
-			softDeleteClause.TimeType = schema.UnixNanosecond
-		} else if settings["MILLI"] != "" {
-			softDeleteClause.TimeType = schema.UnixMillisecond
-		} else {
-			softDeleteClause.TimeType = schema.UnixSecond
-		}
-	}
-
 	if v := settings["DELETEDATFIELD"]; v != "" { // DeletedAtField
 		softDeleteClause.DeleteAtField = f.Schema.LookUpField(v)
 	}
-
 	return []clause.Interface{softDeleteClause}
 }
 
@@ -135,9 +124,15 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 			set     clause.Set
 		)
 
-		if sd.DeleteAtField != nil {
-			set = append(set, clause.Assignment{Column: clause.Column{Name: sd.DeleteAtField.DBName}, Value: curTime})
-			stmt.SetColumn(sd.DeleteAtField.DBName, curTime, true)
+		if deleteAtField := sd.DeleteAtField; deleteAtField != nil {
+			var value interface{}
+			if deleteAtField.GORMDataType == "time" {
+				value = curTime
+			} else {
+				value = sd.timeToUnix(curTime)
+			}
+			set = append(set, clause.Assignment{Column: clause.Column{Name: deleteAtField.DBName}, Value: value})
+			stmt.SetColumn(deleteAtField.DBName, value, true)
 		}
 
 		if sd.Flag {
@@ -145,15 +140,7 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 			stmt.SetColumn(sd.Field.DBName, FlagDeleted, true)
 			stmt.AddClause(set)
 		} else {
-			var curUnix int64 = 0
-			if sd.TimeType == schema.UnixNanosecond {
-				curUnix = curTime.UnixNano()
-			} else if sd.TimeType == schema.UnixMillisecond {
-				curUnix = curTime.UnixNano() / 1e6
-			} else {
-				curUnix = curTime.Unix()
-			}
-
+			var curUnix = sd.timeToUnix(curTime)
 			set = append(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: curUnix}}, set...)
 			stmt.AddClause(set)
 			stmt.SetColumn(sd.Field.DBName, curUnix, true)
@@ -181,4 +168,37 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 		stmt.AddClauseIfNotExists(clause.Update{})
 		stmt.Build(stmt.DB.Callback().Update().Clauses...)
 	}
+}
+
+func (sd SoftDeleteDeleteClause) timeToUnix(curTime time.Time) int64 {
+	switch sd.TimeType {
+	case schema.UnixNanosecond:
+		return curTime.UnixNano()
+	case schema.UnixMillisecond:
+		return curTime.UnixNano() / 1e6
+	default:
+		return curTime.Unix()
+	}
+}
+
+func getTimeType(settings map[string]string) schema.TimeType {
+	if settings["NANO"] != "" {
+		return schema.UnixNanosecond
+	}
+
+	if settings["MILLI"] != "" {
+		return schema.UnixMillisecond
+	}
+
+	fieldUnit := strings.ToUpper(settings["DELETEDATFIELDUNIT"])
+
+	if fieldUnit == "NANO" {
+		return schema.UnixNanosecond
+	}
+
+	if fieldUnit == "MILLI" {
+		return schema.UnixMillisecond
+	}
+
+	return schema.UnixSecond
 }
