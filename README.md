@@ -102,9 +102,8 @@ type User struct {
 ID            uint
 Name          string
 Email         string
-DeletedAt     soft_delete.DeletedAt
 DeletedId     uint // Stores the original ID of the deleted record
-IsDel        utils.DeletedAt    `gorm:"softDelete:flag,DeletedIDField:DeletedId,DeletedIDFromField:ID"` // use `1` `0`
+IsDel         soft_delete.DeletedAt    `gorm:"softDelete:flag,DeletedIDField:DeletedId,DeletedIDFromField:ID"` // use `1` `0`
 }
 
 // Query
