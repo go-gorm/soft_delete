@@ -91,3 +91,24 @@ SELECT * FROM users WHERE is_del = 0;
 // Delete
 UPDATE users SET is_del = 1, deleted_at = /* current unix milli second second*/ WHERE ID = 1;
 ```
+
+## Mixed Mode with Delete ID Field
+#### Maintaining Unique Key Integrity
+This allows you to record the original ID of a deleted record in another field. By doing so, you can maintain the integrity of unique keys by allowing new records with the same unique key to be inserted without conflict.
+#### Example
+Assume we have a User model where the Email field needs to be unique. By storing the original ID in the DeletedId field and creating a composite unique key with Email and DeletedId, you can insert a new record without violating the unique constraint even after soft deleting an existing record.
+```go
+type User struct {
+ID            uint
+Name          string
+Email         string
+DeletedId     uint // Stores the original ID of the deleted record
+IsDel         soft_delete.DeletedAt    `gorm:"softDelete:flag,DeletedIDField:DeletedId,DeletedIDFromField:ID"` // use `1` `0`
+}
+
+// Query
+SELECT * FROM users WHERE is_del = 0;
+
+// Delete
+UPDATE users SET is_del = 1, deleted_id = /* value from ID */ WHERE ID = 1;
+```

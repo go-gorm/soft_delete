@@ -73,6 +73,12 @@ func (DeletedAt) DeleteClauses(f *schema.Field) []clause.Interface {
 	if v := settings["DELETEDATFIELD"]; v != "" { // DeletedAtField
 		softDeleteClause.DeleteAtField = f.Schema.LookUpField(v)
 	}
+	if v := settings["DELETEDIDFIELD"]; v != "" { // DeleteIdField
+		softDeleteClause.DeleteIdField = f.Schema.LookUpField(v)
+	}
+	if v := settings["DELETEDIDFROMFIELD"]; v != "" { // DeleteIdFromField
+		softDeleteClause.DeleteIdFromField = f.Schema.LookUpField(v)
+	}
 	return []clause.Interface{softDeleteClause}
 }
 
@@ -101,10 +107,12 @@ func (sd SoftDeleteUpdateClause) ModifyStatement(stmt *gorm.Statement) {
 }
 
 type SoftDeleteDeleteClause struct {
-	Field         *schema.Field
-	Flag          bool
-	TimeType      schema.TimeType
-	DeleteAtField *schema.Field
+	Field             *schema.Field
+	Flag              bool
+	TimeType          schema.TimeType
+	DeleteAtField     *schema.Field
+	DeleteIdField     *schema.Field
+	DeleteIdFromField *schema.Field
 }
 
 func (sd SoftDeleteDeleteClause) Name() string {
@@ -133,6 +141,14 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 			}
 			set = append(set, clause.Assignment{Column: clause.Column{Name: deleteAtField.DBName}, Value: value})
 			stmt.SetColumn(deleteAtField.DBName, value, true)
+		}
+
+		deleteIdField := sd.DeleteIdField
+		deleteIdFromField := sd.DeleteIdFromField
+
+		if deleteIdField != nil && deleteIdFromField != nil {
+			set = append(set, clause.Assignment{Column: clause.Column{Name: deleteIdField.DBName}, Value: gorm.Expr(deleteIdFromField.DBName)})
+			stmt.SetColumn(deleteIdField.DBName, gorm.Expr(deleteIdFromField.DBName), true)
 		}
 
 		if sd.Flag {
