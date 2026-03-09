@@ -19,6 +19,14 @@ var (
 
 const extraSettingsKey = "soft_delete:extra"
 
+const ExtraSettingsKey = extraSettingsKey
+
+func SetExtra(tx *gorm.DB, values map[string]interface{}) {
+	if tx != nil && tx.Statement != nil {
+		tx.Statement.Settings.Store(ExtraSettingsKey, values)
+	}
+}
+
 func (DeletedAt) QueryClauses(f *schema.Field) []clause.Interface {
 	return []clause.Interface{SoftDeleteQueryClause{Field: f}}
 }
@@ -202,6 +210,7 @@ func (sd SoftDeleteDeleteClause) addExtraFields(stmt *gorm.Statement, set *claus
 	if !ok || raw == nil {
 		return
 	}
+	stmt.Settings.Delete(extraSettingsKey)
 	var values map[string]interface{}
 	switch v := raw.(type) {
 	case map[string]interface{}:

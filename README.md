@@ -131,3 +131,14 @@ db.Set("soft_delete:extra", map[string]interface{}{
 ```
 
 `ExtraFields` supports multiple names separated by `;` or `|`, for example `ExtraFields:DeletedBy;DeletedReason`.
+
+You can also set extra values inside `BeforeDelete` hook:
+
+```go
+func (u *User) BeforeDelete(tx *gorm.DB) error {
+	soft_delete.SetExtra(tx, map[string]interface{}{
+		"DeletedBy": currentUserID,
+	})
+	return nil
+}
+```

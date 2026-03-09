@@ -398,14 +398,14 @@ func TestSoftDeleteExtraFields(t *testing.T) {
 	DB.AutoMigrate(&ExtraFieldsUser{})
 	DB.Save(&user)
 
-	sql := DB.Session(&gorm.Session{DryRun: true}).Set("soft_delete:extra", map[string]interface{}{
+	sql := DB.Session(&gorm.Session{DryRun: true}).Set(soft_delete.ExtraSettingsKey, map[string]interface{}{
 		"DeletedBy": "u1",
 	}).Delete(&user).Statement.SQL.String()
 	if !regexp.MustCompile(`UPDATE .extra_fields_users. SET .*deleted_by.* WHERE .extra_fields_users.\..id. = .* AND .extra_fields_users.\..is_del. = ?`).MatchString(sql) {
 		t.Fatalf("invalid sql generated, got %v", sql)
 	}
 
-	if err := DB.Set("soft_delete:extra", map[string]interface{}{"DeletedBy": "u1"}).Delete(&user).Error; err != nil {
+	if err := DB.Set(soft_delete.ExtraSettingsKey, map[string]interface{}{"DeletedBy": "u1"}).Delete(&user).Error; err != nil {
 		t.Fatalf("No error should happen when soft delete user, but got %v", err)
 	}
 
@@ -414,6 +414,45 @@ func TestSoftDeleteExtraFields(t *testing.T) {
 		t.Fatalf("Should find soft deleted record with Unscoped, but got err %s", err)
 	}
 	if got.DeletedBy != "u1" {
+		t.Fatalf("expected deleted_by to be updated, got %q", got.DeletedBy)
+	}
+}
+
+type ExtraFieldsHookUser struct {
+	ID        uint
+	Name      string
+	DeletedBy string
+	IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag,ExtraFields:DeletedBy"`
+}
+
+func (u *ExtraFieldsHookUser) BeforeDelete(tx *gorm.DB) error {
+	soft_delete.SetExtra(tx, map[string]interface{}{
+		"DeletedBy": "u2",
+	})
+	return nil
+}
+
+func TestSoftDeleteExtraFieldsFromHook(t *testing.T) {
+	DB, err := gorm.Open(sqlite.Open(filepath.Join(os.TempDir(), "gorm.db")), &gorm.Config{})
+	DB = DB.Debug()
+	if err != nil {
+		t.Errorf("failed to connect database")
+	}
+
+	user := ExtraFieldsHookUser{Name: "jinzhu"}
+	DB.Migrator().DropTable(&ExtraFieldsHookUser{})
+	DB.AutoMigrate(&ExtraFieldsHookUser{})
+	DB.Save(&user)
+
+	if err := DB.Delete(&user).Error; err != nil {
+		t.Fatalf("No error should happen when soft delete user, but got %v", err)
+	}
+
+	var got ExtraFieldsHookUser
+	if err := DB.Unscoped().First(&got, user.ID).Error; err != nil {
+		t.Fatalf("Should find soft deleted record with Unscoped, but got err %s", err)
+	}
+	if got.DeletedBy != "u2" {
 		t.Fatalf("expected deleted_by to be updated, got %q", got.DeletedBy)
 	}
 }
