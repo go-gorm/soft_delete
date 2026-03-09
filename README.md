@@ -112,3 +112,22 @@ SELECT * FROM users WHERE is_del = 0;
 // Delete
 UPDATE users SET is_del = 1, deleted_id = /* value from ID */ WHERE ID = 1;
 ```
+
+## Extra Fields
+
+You can update additional columns in the same soft-delete SQL by specifying `ExtraFields` and passing values via `db.Set("soft_delete:extra", map[string]interface{}{...})`.
+
+```go
+type User struct {
+	ID        uint
+	Name      string
+	DeletedBy string
+	IsDel     soft_delete.DeletedAt `gorm:"softDelete:flag,ExtraFields:DeletedBy"`
+}
+
+db.Set("soft_delete:extra", map[string]interface{}{
+	"DeletedBy": userID,
+}).Delete(&user)
+```
+
+`ExtraFields` supports multiple names separated by `;` or `|`, for example `ExtraFields:DeletedBy;DeletedReason`.

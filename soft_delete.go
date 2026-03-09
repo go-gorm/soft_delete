@@ -17,6 +17,8 @@ var (
 	FlagActived = 0
 )
 
+const extraSettingsKey = "soft_delete:extra"
+
 func (DeletedAt) QueryClauses(f *schema.Field) []clause.Interface {
 	return []clause.Interface{SoftDeleteQueryClause{Field: f}}
 }
@@ -79,6 +81,9 @@ func (DeletedAt) DeleteClauses(f *schema.Field) []clause.Interface {
 	if v := settings["DELETEDIDFROMFIELD"]; v != "" { // DeleteIdFromField
 		softDeleteClause.DeleteIdFromField = f.Schema.LookUpField(v)
 	}
+	if v := settings["EXTRAFIELDS"]; v != "" {
+		softDeleteClause.ExtraFields = splitExtraFields(v)
+	}
 	return []clause.Interface{softDeleteClause}
 }
 
@@ -113,6 +118,7 @@ type SoftDeleteDeleteClause struct {
 	DeleteAtField     *schema.Field
 	DeleteIdField     *schema.Field
 	DeleteIdFromField *schema.Field
+	ExtraFields       []string
 }
 
 func (sd SoftDeleteDeleteClause) Name() string {
@@ -154,12 +160,14 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 		if sd.Flag {
 			set = append(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: FlagDeleted}}, set...)
 			stmt.SetColumn(sd.Field.DBName, FlagDeleted, true)
+			sd.addExtraFields(stmt, &set)
 			stmt.AddClause(set)
 		} else {
 			var curUnix = sd.timeToUnix(curTime)
 			set = append(clause.Set{{Column: clause.Column{Name: sd.Field.DBName}, Value: curUnix}}, set...)
-			stmt.AddClause(set)
 			stmt.SetColumn(sd.Field.DBName, curUnix, true)
+			sd.addExtraFields(stmt, &set)
+			stmt.AddClause(set)
 		}
 
 		if stmt.Schema != nil {
@@ -183,6 +191,59 @@ func (sd SoftDeleteDeleteClause) ModifyStatement(stmt *gorm.Statement) {
 		SoftDeleteQueryClause{Field: sd.Field}.ModifyStatement(stmt)
 		stmt.AddClauseIfNotExists(clause.Update{})
 		stmt.Build(stmt.DB.Callback().Update().Clauses...)
+	}
+}
+
+func (sd SoftDeleteDeleteClause) addExtraFields(stmt *gorm.Statement, set *clause.Set) {
+	if len(sd.ExtraFields) == 0 {
+		return
+	}
+	raw, ok := stmt.Settings.Load(extraSettingsKey)
+	if !ok || raw == nil {
+		return
+	}
+	var values map[string]interface{}
+	switch v := raw.(type) {
+	case map[string]interface{}:
+		values = v
+	default:
+		return
+	}
+
+	existing := make(map[string]struct{}, len(*set))
+	for _, a := range *set {
+		existing[a.Column.Name] = struct{}{}
+	}
+
+	for _, name := range sd.ExtraFields {
+		dbName := name
+		var field *schema.Field
+		if stmt.Schema != nil {
+			field = stmt.Schema.LookUpField(name)
+		}
+		if field != nil {
+			dbName = field.DBName
+		}
+		if _, ok := existing[dbName]; ok {
+			continue
+		}
+
+		v, ok := values[name]
+		if !ok && field != nil {
+			v, ok = values[field.Name]
+			if !ok {
+				v, ok = values[field.DBName]
+			}
+		}
+		if !ok {
+			continue
+		}
+
+		*set = append(*set, clause.Assignment{Column: clause.Column{Name: dbName}, Value: v})
+		existing[dbName] = struct{}{}
+		if field != nil {
+			stmt.SetColumn(field.DBName, v, true)
+		}
 	}
 }
 
@@ -217,4 +278,19 @@ func getTimeType(settings map[string]string) schema.TimeType {
 	}
 
 	return schema.UnixSecond
+}
+
+func splitExtraFields(v string) []string {
+	parts := strings.FieldsFunc(v, func(r rune) bool {
+		return r == ';' || r == '|' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+	})
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
 }
